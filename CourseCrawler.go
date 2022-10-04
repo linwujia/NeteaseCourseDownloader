@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/antchfx/htmlquery"
 	"github.com/chromedp/chromedp"
 	"github.com/golang/glog"
 	"strings"
@@ -61,8 +63,6 @@ func (crawler *CourseCrawler) crawlerChapter() chromedp.ActionFunc {
 			return
 		}
 
-		glog.Info("chapter ", chapter)
-
 		if doc, err := goquery.NewDocumentFromReader(strings.NewReader(chapter)); err != nil {
 			return err
 		} else {
@@ -89,6 +89,9 @@ func (crawler *CourseCrawler) crawlerSessions() chromedp.ActionFunc {
 			if err != nil {
 				return err
 			}
+
+			json, _ := json.Marshal(chapter)
+			glog.Info(string(json))
 		}
 		return
 	}
@@ -113,26 +116,37 @@ func (crawler *CourseCrawler) crawlerSingleSession(ctx context.Context, chapter 
 		return
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(sessions))
+	rootNode, err := htmlquery.Parse(strings.NewReader(sessions))
 	if err != nil {
 		glog.Error(err)
-		return
+		return err
 	}
 
-	doc.Find(`/ul[@class="ux-learn-lecture-tree_list"]`).Each(func(i int, selection *goquery.Selection) {
+	sessionNodes := htmlquery.Find(rootNode, "/html/body/div/ul")
+	for _, sNode := range sessionNodes {
 		var session CourseSession
-		session.Title = selection.Find("li > div div span").Text()
-		selection.Find("div.ux-learn-lecture-tree").Each(func(i int, selection *goquery.Selection) {
-			var child Child
-			child.Title = selection.Find("li > div.ux-learn-lecture-tree > ul:nth-child(1) > li > div.ux-learn-lecture-tree_item > div > span").Text()
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlquery.OutputHTML(sNode, true)))
+		if err != nil {
+			glog.Error(err)
+			break
+		}
+		session.Title = doc.Find("div.ux-learn-lecture-tree_chapter span").First().Text()
 
-			child.Children = append(child.Children, &child)
+		doc.Find("ul li div ul.ux-learn-lecture-tree_list").Each(func(i int, selection *goquery.Selection) {
+			var child Child
+			child.Title = selection.Find("span.ux-learn-lecture-tree_name").First().Text()
+
+			selection.Find("ul.ux-learn-lecture-tree_list").Each(func(i int, selection *goquery.Selection) {
+				var som Child
+				som.Title = selection.Find("div.ux-learn-lecture-tree_name").First().Text()
+				child.Children = append(child.Children, &som)
+			})
+
+			session.Children = append(session.Children, &child)
 		})
 
 		chapter.Sessions = append(chapter.Sessions, &session)
-	})
-
-	glog.Info(sessions)
+	}
 	return
 }
 

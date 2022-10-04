@@ -94,7 +94,7 @@ func (user *AccountUser) loginIfNeed() chromedp.ActionFunc {
 		chromedp.Navigate(LoginUrl).Do(ctx)
 
 		//会有个弹窗，先关闭
-		//chromedp.Click("#ux-modal > div.ux-modal_ft > span").Do(ctx)
+		chromedp.Click("#ux-modal > div.ux-modal_ft > span").Do(ctx)
 
 		//微信登录按钮
 		if err = chromedp.WaitVisible("#form_parent > div.ux-login-set-login-set-panel > div > div.login-set-panel-login > div > div.ux-urs-login-third.third-login.f-cb > div > a:nth-child(1) > span").Do(ctx); err != nil {
