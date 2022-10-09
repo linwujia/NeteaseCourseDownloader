@@ -1,6 +1,7 @@
 package main
 
 import (
+	"NeteaseCourseDownloader/chrome"
 	"bytes"
 	"context"
 	"fmt"
@@ -22,13 +23,16 @@ const (
 )
 
 type AccountUser struct {
-	chromeDpClient *ChromeDpClient
+	chromeDpClient *chrome.ChromeDpClient
 	checkLoginUrl  string
+	manager        *CourseManager
+	cookies        []*network.Cookie
 }
 
-func NewAccountUser(chromeDpClient *ChromeDpClient) *AccountUser {
+func NewAccountUser(manager *CourseManager) *AccountUser {
 	user := new(AccountUser)
-	user.chromeDpClient = chromeDpClient
+	user.chromeDpClient = chrome.Client
+	user.manager = manager
 	user.checkLoginUrl = "https://course.study.163.com/480000005355162/learning"
 	return user
 }
@@ -94,7 +98,7 @@ func (user *AccountUser) loginIfNeed() chromedp.ActionFunc {
 		chromedp.Navigate(LoginUrl).Do(ctx)
 
 		//会有个弹窗，先关闭
-		chromedp.Click("#ux-modal > div.ux-modal_ft > span").Do(ctx)
+		//chromedp.Click("#ux-modal > div.ux-modal_ft > span").Do(ctx)
 
 		//微信登录按钮
 		if err = chromedp.WaitVisible("#form_parent > div.ux-login-set-login-set-panel > div > div.login-set-panel-login > div > div.ux-urs-login-third.third-login.f-cb > div > a:nth-child(1) > span").Do(ctx); err != nil {
@@ -127,6 +131,9 @@ func (user *AccountUser) saveCookies() chromedp.ActionFunc {
 		if err != nil {
 			return
 		}
+
+		user.cookies = cookies
+		user.manager.SendEvent(EventLoginCookies{cookies: cookies})
 
 		// 2. 序列化
 		cookiesData, err := network.GetAllCookiesReturns{Cookies: cookies}.MarshalJSON()

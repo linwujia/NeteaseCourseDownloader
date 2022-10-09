@@ -1,4 +1,4 @@
-package main
+package chrome
 
 import (
 	"context"
@@ -8,20 +8,27 @@ import (
 )
 
 type ChromeDpClient struct {
-	context context.Context
+	Context context.Context
 	cancels []context.CancelFunc
 }
 
-func NewChromeDpClient() *ChromeDpClient {
+var Client *ChromeDpClient
+
+func init() {
+	Client = newChromeDpClient()
+	Client.init()
+}
+
+func newChromeDpClient() *ChromeDpClient {
 	client := new(ChromeDpClient)
 	return client
 }
 
-func (client *ChromeDpClient) Init() {
+func (client *ChromeDpClient) init() {
 	var cancel context.CancelFunc
 
 	// chromdp依赖context上限传递参数
-	client.context, cancel = chromedp.NewExecAllocator(
+	client.Context, cancel = chromedp.NewExecAllocator(
 		context.Background(),
 
 		// 以默认配置的数组为基础，覆写headless参数
@@ -34,14 +41,14 @@ func (client *ChromeDpClient) Init() {
 	client.cancels = append(client.cancels, cancel)
 
 	// create context
-	client.context, cancel = chromedp.NewContext(
-		client.context,
+	client.Context, cancel = chromedp.NewContext(
+		client.Context,
 		chromedp.WithLogf(log.Printf),
 	)
 	client.cancels = append(client.cancels, cancel)
 
 	// create a timeout as a safety net to prevent any infinite wait loops
-	client.context, cancel = context.WithTimeout(client.context, 60*time.Second)
+	client.Context, cancel = context.WithTimeout(client.Context, 60*time.Second)
 	client.cancels = append(client.cancels, cancel)
 }
 
@@ -52,5 +59,5 @@ func (client *ChromeDpClient) Close() {
 }
 
 func (client *ChromeDpClient) Run(actions ...chromedp.Action) error {
-	return chromedp.Run(client.context, actions...)
+	return chromedp.Run(client.Context, actions...)
 }
